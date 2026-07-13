@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: jobapphelper-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: jobapphelper
+      POSTGRES_PASSWORD: jobapphelper
+      POSTGRES_DB: jobapphelper
+    ports:
+      - "5432:5432"
+    volumes:
+      - jobapphelper_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobapphelper"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  jobapphelper_pg_data:

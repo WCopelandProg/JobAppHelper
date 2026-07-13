@@ -1,0 +1,286 @@
+// JobAppHelper database schema
+// Provider-based job architecture, auth, resumes, applications, cover letters, and networking.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Auth / Users ----------
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  fullName     String
+  school       String?
+  gradYear     Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profile          Profile?
+  resumes          Resume[]
+  savedJobs        SavedJob[]
+  applications     Application[]
+  coverLetters     CoverLetter[]
+  networkingLeads  NetworkingLead[]
+  refreshTokens    RefreshToken[]
+
+  @@index([email])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revoked   Boolean  @default(false)
+
+  @@index([userId])
+}
+
+// Structured profile used for job matching + cover letter personalization
+model Profile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  headline        String?
+  location        String?
+  remotePref      RemotePreference @default(ANY)
+  yearsExperience  Int?     @default(0)
+  targetRoles     String[] // e.g. ["Data Analyst", "ML Engineer"]
+  targetCategories JobCategory[]
+  skills          String[] // e.g. ["Python", "SQL", "Tableau"]
+  interests       String[] // free-form interest keywords used for matching
+  linkedinUrl     String?
+  githubUrl       String?
+  portfolioUrl    String?
+  phone           String?
+  bio             String?
+
+  updatedAt       DateTime @updatedAt
+}
+
+enum RemotePreference {
+  REMOTE
+  HYBRID
+  ONSITE
+  ANY
+}
+
+// ---------- Resumes ----------
+
+model Resume {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fileName     String
+  storagePath  String
+  mimeType     String
+  fileSizeBytes Int
+
+  parsedText   String?  @db.Text
+  parsedSkills String[]
+  isPrimary    Boolean  @default(false)
+
+  createdAt    DateTime @default(now())
+
+  applications Application[]
+  coverLetters CoverLetter[]
+
+  @@index([userId])
+}
+
+// ---------- Jobs (provider-based architecture) ----------
+
+enum JobSourceProvider {
+  REMOTIVE
+  ARBEITNOW
+  ADZUNA
+  SEED
+}
+
+enum JobCategory {
+  DATA_ANALYTICS
+  DATA_SCIENCE
+  MACHINE_LEARNING
+  BUSINESS_INTELLIGENCE
+  SOFTWARE_ENGINEERING
+  DATA_ENGINEERING
+  PRODUCT_ANALYTICS
+  QUANTITATIVE_ANALYST
+  OTHER
+}
+
+enum SeniorityLevel {
+  INTERNSHIP
+  NEW_GRAD
+  JUNIOR
+  MID
+  SENIOR
+  UNKNOWN
+}
+
+model Job {
+  id               String   @id @default(uuid())
+
+  // Provenance: which provider surfaced this job and its ID there.
+  sourceProvider   JobSourceProvider
+  sourceJobId      String
+  sourceUrl        String
+
+  title            String
+  company          String
+  companyLogoUrl   String?
+  location         String?
+  remoteType       RemotePreference @default(ANY)
+  category         JobCategory @default(OTHER)
+  seniority        SeniorityLevel @default(UNKNOWN)
+
+  descriptionHtml  String   @db.Text
+  descriptionText  String   @db.Text
+  tags             String[]
+
+  salaryMin        Int?
+  salaryMax        Int?
+  salaryCurrency    String?
+
+  postedAt         DateTime?
+  fetchedAt        DateTime @default(now())
+  isActive         Boolean  @default(true)
+
+  savedByUsers     SavedJob[]
+  applications     Application[]
+  coverLetters     CoverLetter[]
+
+  @@unique([sourceProvider, sourceJobId])
+  @@index([category])
+  @@index([company])
+  @@index([postedAt])
+}
+
+model SavedJob {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, jobId])
+  @@index([userId])
+}
+
+// ---------- Applications (tracking board) ----------
+
+enum ApplicationStatus {
+  WISHLIST
+  APPLIED
+  OA_ASSESSMENT
+  INTERVIEWING
+  OFFER
+  REJECTED
+  WITHDRAWN
+}
+
+model Application {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobId         String
+  job           Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  resumeId      String?
+  resume        Resume?  @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+
+  status        ApplicationStatus @default(WISHLIST)
+  appliedAt     DateTime?
+  notes         String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  statusHistory ApplicationStatusEvent[]
+  coverLetters  CoverLetter[]
+
+  @@unique([userId, jobId])
+  @@index([userId, status])
+}
+
+model ApplicationStatusEvent {
+  id            String   @id @default(uuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  status        ApplicationStatus
+  note          String?
+  createdAt     DateTime @default(now())
+
+  @@index([applicationId])
+}
+
+// ---------- Cover letters ----------
+
+enum CoverLetterGenerationMethod {
+  AI
+  TEMPLATE
+}
+
+model CoverLetter {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobId         String
+  job           Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  resumeId      String?
+  resume        Resume?  @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+  applicationId String?
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  content       String   @db.Text
+  method        CoverLetterGenerationMethod @default(TEMPLATE)
+  tone          String?  @default("professional")
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([jobId])
+}
+
+// ---------- Networking ----------
+
+enum NetworkingLeadType {
+  ALUMNI
+  RECRUITER
+  EMPLOYEE
+  OTHER
+}
+
+model NetworkingLead {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  company     String
+  name        String?
+  role        String?
+  type        NetworkingLeadType @default(OTHER)
+  linkedinUrl String?
+  email       String?
+  notes       String?
+  contacted   Boolean  @default(false)
+  searchUrl   String?  // pre-built LinkedIn search URL suggestion
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, company])
+}
