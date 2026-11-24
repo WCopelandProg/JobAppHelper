@@ -1,27 +1,18 @@
 # JobAppHelper
 
-An AI-powered job search and application assistant for college students and early-career
-candidates targeting **data analytics, data science, machine learning, business intelligence,
-software engineering, data engineering, product analytics, and quantitative analyst** roles
-(internships and new-grad positions included).
+A full-stack application for finding relevant jobs, comparing opportunities, and tracking applications in one place.
 
-JobAppHelper helps you:
+**Stack:** React, TypeScript, Express, PostgreSQL, Prisma, and an optional Anthropic integration.
 
-- **Discover** real job listings from multiple sources through a pluggable provider architecture
-- **Match & rank** jobs against your profile (skills, target roles, interests, remote preference)
-- **Save and compare** opportunities
-- **Track applications** through a Wishlist → Applied → OA/Assessment → Interviewing → Offer pipeline
-- **Auto-generate tailored cover letters** (AI-powered when configured, with a high-quality
-  template fallback when it isn't)
-- **Find networking connections** — pre-built LinkedIn search links for alumni, employees, and
-  recruiters at target companies, plus a simple CRM to track outreach
-- **Upload and parse your resume** (PDF/Word) to auto-extract skills into your profile
+## Project highlights
 
-This is a full-stack, production-shaped application: real PostgreSQL database, JWT auth,
-input validation, structured error handling, loading/empty/error states throughout the UI,
-and a job-provider abstraction designed to make adding new sources trivial.
+- Ranks listings with an explainable score based on skills, target roles, interests, and work preferences.
+- Uses interchangeable job providers, with sample data available when live providers are unavailable.
+- Tracks applications and networking contacts across the job-search process.
+- Supports resume parsing and optional AI cover letters with a template fallback.
+- Includes authentication, input validation, and ownership checks for user data.
 
----
+**Start here:** [Setup](#setup) · [Architecture](#architecture) · [Tech stack](#tech-stack) · [Security](#security--validation-notes)
 
 ## Architecture
 
