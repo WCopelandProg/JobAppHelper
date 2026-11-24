@@ -1,14 +1,14 @@
 # JobAppHelper
 
-A full-stack application for finding relevant jobs, comparing opportunities, and tracking applications in one place.
+Find jobs, compare listings, and keep track of your applications in one place.
 
 **Stack:** React, TypeScript, Express, PostgreSQL, Prisma, and an optional Anthropic integration.
 
-## Project highlights
+## What it does
 
-- Ranks listings with an explainable score based on skills, target roles, interests, and work preferences.
-- Uses interchangeable job providers, with sample data available when live providers are unavailable.
-- Tracks applications and networking contacts across the job-search process.
+- Ranks listings by your skills, target roles, interests, and work preferences, with an explanation for each score.
+- Pulls listings from interchangeable job providers and includes sample listings when live sources aren’t available.
+- Keeps applications and networking contacts together as your search progresses.
 - Supports resume parsing and optional AI cover letters with a template fallback.
 - Includes authentication, input validation, and ownership checks for user data.
 
@@ -47,21 +47,17 @@ interface JobProvider {
 }
 ```
 
-Three providers ship out of the box (`backend/src/services/providers/`):
+The app includes three providers (`backend/src/services/providers/`):
 
-- **Remotive** (`remotiveProvider.ts`) — free, unauthenticated API of real remote listings
-- **Arbeitnow** (`arbeitnowProvider.ts`) — free, unauthenticated job board API
-- **Curated sample listings** (`seedProvider.ts`) — a hand-picked set of realistic postings
-  (linking to real company career pages) used to seed the database and guarantee the app has
-  useful content even if outbound network access to the live providers is unavailable
+- **Remotive** (`remotiveProvider.ts`): free, unauthenticated API of real remote listings
+- **Arbeitnow** (`arbeitnowProvider.ts`): free, unauthenticated job board API
+- **Curated sample listings** (`seedProvider.ts`): realistic sample postings linked to real company career pages. These seed the database so there are listings to browse even when the API can’t reach live providers.
 
 All providers normalize into a shared `NormalizedJob` shape and are classified into the app's
 fixed set of categories/seniority levels by `services/providers/classify.ts`. Jobs are
 deduplicated and upserted by `(sourceProvider, sourceJobId)`.
 
-**Adding a new source** (e.g. Adzuna, a company ATS, GitHub Jobs) means writing one file that
-implements `JobProvider` and adding it to the `jobProviders` array in
-`services/providers/index.ts` — nothing else in the app needs to change.
+To **add a source**, write a file that implements `JobProvider`, then add it to `jobProviders` in `services/providers/index.ts`. The rest of the app uses the same interface. This works for sources such as Adzuna or a company ATS.
 
 Jobs are refreshed on a cron schedule (`JOB_SYNC_CRON`, default hourly) and can be triggered
 manually via `POST /api/jobs/sync`.
@@ -70,9 +66,7 @@ manually via `POST /api/jobs/sync`.
 
 `services/coverLetterService.ts` uses the Anthropic API (`claude-sonnet-5`) when
 `ANTHROPIC_API_KEY` is set. If the key is missing, or the API call fails for any reason, it
-falls back to a deterministic template generator that still personalizes the letter using the
-user's profile, resume-extracted skills, and the job description — so the feature always works,
-with or without an API key.
+uses a fixed template that fills in details from the user’s profile, resume skills, and job description. Cover letters work with or without an API key.
 
 ### Matching
 
@@ -89,7 +83,7 @@ remote-preference match. Used for job search sorting and dashboard recommendatio
 | Database   | PostgreSQL + Prisma ORM |
 | Backend    | Node.js, Express, TypeScript, zod validation, JWT auth (access + refresh, rotation) |
 | Frontend   | React 18, TypeScript, Vite, Tailwind CSS, TanStack Query, React Router, React Hook Form |
-| AI         | Anthropic API (optional; graceful template fallback) |
+| AI         | Anthropic API (optional; template fallback) |
 | Resume parsing | `pdf-parse` + keyword-based skill extraction |
 | Uploads    | Multer (disk storage, type/size validated) |
 
@@ -110,7 +104,7 @@ Using Docker:
 docker compose up -d
 ```
 
-Or point `DATABASE_URL` at any existing PostgreSQL instance — see `backend/.env.example`.
+Or point `DATABASE_URL` at any existing PostgreSQL instance. See `backend/.env.example`.
 
 ### 2. Backend
 
@@ -128,9 +122,7 @@ npm run dev                           # starts the API on http://localhost:4000
 
 Demo login after seeding: **demo@jobapphelper.dev** / **Password123!**
 
-To enable AI-generated cover letters, set `ANTHROPIC_API_KEY` in `backend/.env`. Without it,
-the app automatically uses the template-based generator — no functionality is lost, letters are
-just less personalized to free-form job description nuance.
+To enable AI-generated cover letters, set `ANTHROPIC_API_KEY` in `backend/.env`. Without it, the app uses the template generator. The feature still works, though it picks up less of the detail in free-form job descriptions.
 
 ### 3. Frontend
 
@@ -151,17 +143,13 @@ The API syncs all providers on boot (`JOB_SYNC_ON_BOOT=true`) and on a cron sche
 curl -X POST http://localhost:4000/api/jobs/sync -H "Authorization: Bearer <accessToken>"
 ```
 
-> Note: the Remotive/Arbeitnow providers require outbound internet access from the machine
-> running the API. If that network is unavailable (e.g. a locked-down sandbox), the curated
-> sample provider still guarantees a working set of realistic listings across every target
-> category, and the app degrades gracefully — sync failures for individual providers are
-> reported per-provider rather than failing the whole sync.
+> Remotive and Arbeitnow need an internet connection from the API server. If they’re unreachable, you can still browse sample listings across all target categories. The sync reports each provider’s errors separately, so one failed provider doesn’t stop the others.
 
 ---
 
 ## Environment variables
 
-See `backend/.env.example` and `frontend/.env.example` for the full list. Key ones:
+See `backend/.env.example` and `frontend/.env.example` for the full list. The main settings are:
 
 | Variable | Purpose |
 |----------|---------|
@@ -200,7 +188,7 @@ See `backend/.env.example` and `frontend/.env.example` for the full list. Key on
   OA/Assessment, Interviewing, Offer)
 - Seeds a couple of sample networking leads
 
-Re-run any time with `npm run seed` (from `backend/`) — it's idempotent (upserts by unique keys).
+You can run `npm run seed` again from `backend/`. It updates records by their unique keys, so rerunning it won’t create duplicates.
 
 ---
 
@@ -211,5 +199,5 @@ Re-run any time with `npm run seed` (from `backend/`) — it's idempotent (upser
 - **New job category / seniority rule**: update `classify.ts`'s keyword rules and the shared
   `JobCategory`/`SeniorityLevel` enums in `prisma/schema.prisma` (+ migration) and
   `frontend/src/types/index.ts`.
-- **New AI feature**: `coverLetterService.ts` shows the pattern (Anthropic client + graceful
+- **New AI feature**: `coverLetterService.ts` shows the pattern (Anthropic client + template
   fallback) to follow for any additional AI-assisted feature.
